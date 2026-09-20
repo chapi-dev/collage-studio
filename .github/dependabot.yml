@@ -12,32 +12,35 @@ updates:
         patterns:
           - react
           - react-dom
-          - '@types/react'
-          - '@types/react-dom'
+          - "@types/react"
+          - "@types/react-dom"
       expo:
         patterns:
           - expo
-          - 'expo-*'
+          - "expo-*"
           - react-native
-          - 'react-native-*'
+          - "react-native-*"
       tooling:
         patterns:
           - eslint
-          - 'eslint-*'
-          - '@typescript-eslint/*'
+          - "eslint-*"
+          - "@typescript-eslint/*"
           - typescript-eslint
           - prettier
           - typescript
           - vite
           - vitest
-          - '@vitejs/*'
-          - '@vitest/*'
+          - "@vitejs/*"
+          - "@vitest/*"
     ignore:
-      # Expo SDK upgrades are coordinated releases, never a dependency bump.
+      # The Expo SDK pins its own React and React Native versions, so these are
+      # upgraded as one coordinated release and never as a dependency bump.
       - dependency-name: expo
-        update-types: [version-update:semver-major]
+      - dependency-name: expo-*
+      - dependency-name: react
+      - dependency-name: react-dom
       - dependency-name: react-native
-        update-types: [version-update:semver-major]
+      - dependency-name: react-native-*
 
   - package-ecosystem: github-actions
     directory: /
