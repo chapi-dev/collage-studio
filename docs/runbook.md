@@ -105,9 +105,29 @@ that GitHub sometimes emits numeric ids (`repo:owner@123/repo@456:...`). The boo
 script registers both spellings.
 
 **Smoke test fails with HTTP 503 right after a deploy**
-App Service is still warming the new package. The workflow retries for five minutes; if it
+App Service is still warming the new package. The workflow retries for ten minutes; if it
 still fails, check `az webapp log tail` for a startup crash — the most common cause is a
 package missing `server.mjs`, which means `npm run package -w @collage/web` did not run.
+
+**`az webapp deploy` reports "site failed to start" while the site is serving traffic**
+Once a release crashes on boot, the site keeps a sticky
+`LastError: ContainerStartupFailure` in its container status. The synchronous OneDeploy
+poller reads that flag and reports `FailedInstances: 1` for every later deployment, even
+after `Site started.` appears in the startup log with the new deployment id. That is why
+the workflow deploys with `--async true` and treats the `/healthz` probe — which must
+report the commit being deployed — as the real gate. To confirm by hand:
+
+```bash
+az webapp log download -n <site> -g <group> --log-file logs.zip
+# LogFiles/StartupLogs/*_success.log ends with "Site started."
+curl -s https://<site>.azurewebsites.net/healthz
+```
+
+**The site starts but every request 404s, and `/home/site/wwwroot` only holds
+`hostingstart.html`**
+`WEBSITE_RUN_FROM_PACKAGE=1` was set. On Linux that only stages the archive under
+`/home/data/SitePackages`; it never mounts it on the site root. Remove the setting and
+redeploy so zip deploy extracts the package.
 
 **`az webapp deploy` returns 401**
 Basic publishing credentials are disabled on purpose. Deployments must use an Azure AD

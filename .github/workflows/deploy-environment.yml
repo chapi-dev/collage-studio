@@ -104,41 +104,52 @@ jobs:
           WEB_APP_NAME: ${{ steps.provision.outputs.webAppName }}
         run: |
           set -euo pipefail
+          # --async: the synchronous poller reports FailedInstances as soon as the
+          # site carries a sticky ContainerStartupFailure from an earlier release,
+          # even once the new worker is serving traffic. The smoke test below is
+          # the authoritative gate: it waits for /healthz to report this commit.
           az webapp deploy \
             --resource-group "$RESOURCE_GROUP" \
             --name "$WEB_APP_NAME" \
             --src-path web-package.zip \
             --type zip \
             --clean true \
-            --restart true
+            --restart true \
+            --async true
 
       - name: Smoke test
         env:
           URL: ${{ steps.provision.outputs.url }}
         run: |
           set -euo pipefail
-          echo "Probing $URL/healthz"
-          for attempt in $(seq 1 30); do
+          echo "Waiting for $URL/healthz to report ${GITHUB_SHA}"
+          for attempt in $(seq 1 60); do
             code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 15 "$URL/healthz" || true)
             if [ "$code" = "200" ]; then
-              cat /tmp/health.json
-              echo
-              index=$(curl -s -o /tmp/index.html -w '%{http_code}' --max-time 15 "$URL/" || true)
-              if [ "$index" != "200" ]; then
-                echo "::error::The application root returned HTTP $index"
-                exit 1
+              release=$(jq -r '.release // empty' /tmp/health.json)
+              status=$(jq -r '.status // empty' /tmp/health.json)
+              if [ "$status" = "healthy" ] && [ "$release" = "$GITHUB_SHA" ]; then
+                cat /tmp/health.json
+                echo
+                index=$(curl -s -o /tmp/index.html -w '%{http_code}' --max-time 15 "$URL/" || true)
+                if [ "$index" != "200" ]; then
+                  echo "::error::The application root returned HTTP $index"
+                  exit 1
+                fi
+                grep -q "Collage Studio" /tmp/index.html || {
+                  echo "::error::The served page does not look like the Collage Studio client"
+                  exit 1
+                }
+                echo "Smoke test passed on attempt $attempt"
+                exit 0
               fi
-              grep -q "Collage Studio" /tmp/index.html || {
-                echo "::error::The served page does not look like the Collage Studio client"
-                exit 1
-              }
-              echo "Smoke test passed on attempt $attempt"
-              exit 0
+              echo "Attempt $attempt: serving release '${release}', waiting for ${GITHUB_SHA}"
+            else
+              echo "Attempt $attempt: HTTP $code"
             fi
-            echo "Attempt $attempt: HTTP $code, retrying in 10s"
             sleep 10
           done
-          echo "::error::The application never became healthy"
+          echo "::error::The application never served this commit"
           exit 1
 
       - name: Publish summary
