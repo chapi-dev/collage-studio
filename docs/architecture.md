@@ -85,8 +85,13 @@ check and the pipeline smoke test meaningful.
 - **monitoring** — Log Analytics workspace + Application Insights (workspace based).
 - **web-app** — Linux App Service plan and site on `NODE|20-lts`, HTTPS only, TLS 1.2
   minimum, FTPS disabled, basic publishing credentials disabled for both SCM and FTP,
-  `WEBSITE_RUN_FROM_PACKAGE=1`, health check on `/healthz`, diagnostic settings streaming
-  HTTP, console, application and platform logs to the workspace.
+  health check on `/healthz`, diagnostic settings streaming HTTP, console, application
+  and platform logs to the workspace.
+
+The site is published with zip deploy, which extracts the package into
+`/home/site/wwwroot`. `WEBSITE_RUN_FROM_PACKAGE=1` is deliberately **not** set: on Linux
+that flag only stages the archive under `/home/data/SitePackages` without ever mounting
+it, so the worker would start against an empty site root.
 
 Sizing is environment driven: `dev` runs B1 with one worker and 30 day retention, `prod`
 runs P0v3 with two workers and 90 day retention. No storage account is used anywhere,

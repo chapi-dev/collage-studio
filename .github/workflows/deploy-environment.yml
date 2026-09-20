@@ -109,6 +109,7 @@ jobs:
             --name "$WEB_APP_NAME" \
             --src-path web-package.zip \
             --type zip \
+            --clean true \
             --restart true
 
       - name: Smoke test

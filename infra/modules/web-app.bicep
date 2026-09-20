@@ -67,7 +67,9 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
       scmMinTlsVersion: '1.2'
       ftpsState: 'Disabled'
       healthCheckPath: '/healthz'
-      appCommandLine: 'node server/server.mjs'
+      // The deployment package flattens apps/web/server/server.mjs to the site
+      // root, next to public/, so the entry point has no directory prefix.
+      appCommandLine: 'node server.mjs'
       numberOfWorkers: workerCount
       use32BitWorkerProcess: false
       remoteDebuggingEnabled: false
@@ -102,10 +104,10 @@ resource site 'Microsoft.Web/sites@2023-12-01' = {
           value: 'false'
         }
         {
-          name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: '1'
-        }
-        {
+          // WEBSITE_RUN_FROM_PACKAGE=1 is a Windows-only feature: on Linux the
+          // package is staged under /home/data/SitePackages but never mounted
+          // on /home/site/wwwroot, so the worker starts against an empty site.
+          // Zip deploy extracts the package instead.
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsightsConnectionString
         }
