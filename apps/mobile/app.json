@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Collage Studio",
+    "slug": "collage-studio",
+    "scheme": "collagestudio",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0b0d12",
+    "primaryColor": "#5b8cff",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.chapi.collagestudio",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "dev.chapi.collagestudio",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#0b0d12",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Collage Studio needs access to your photos so you can pick the pictures for your collage."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Collage Studio needs access to your photos so you can pick the pictures for your collage.",
+          "savePhotosPermission": "Collage Studio saves the collages you export to your photo library.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
+    ]
+  }
+}

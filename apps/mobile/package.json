@@ -1,0 +1,36 @@
+{
+  "name": "@collage/mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Collage Studio for iOS and Android",
+  "license": "MIT",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "export": "expo export --platform android --output-dir dist",
+    "doctor": "npx expo-doctor"
+  },
+  "dependencies": {
+    "@collage/core": "*",
+    "expo": "~57.0.22",
+    "expo-dev-client": "~57.0.19",
+    "expo-haptics": "~57.0.3",
+    "expo-image-picker": "~57.0.17",
+    "expo-media-library": "~57.0.5",
+    "expo-sharing": "~57.0.19",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-view-shot": "^5.1.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2"
+  }
+}

@@ -1,0 +1,154 @@
+name: Deploy environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment to deploy to (dev or prod).
+        required: true
+        type: string
+      resource-group:
+        description: Target Azure resource group.
+        required: true
+        type: string
+      parameter-file:
+        description: Bicep parameter file for this environment.
+        required: true
+        type: string
+      location:
+        description: Azure region used when the resource group has to be created.
+        required: false
+        type: string
+        default: westeurope
+      artifact:
+        description: Name of the web deployment package artifact.
+        required: false
+        type: string
+        default: web-package
+    outputs:
+      url:
+        description: Public URL of the deployed web app.
+        value: ${{ jobs.deploy.outputs.url }}
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ steps.provision.outputs.url }}
+    outputs:
+      url: ${{ steps.provision.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Provision infrastructure
+        id: provision
+        env:
+          APP_VERSION: ${{ github.sha }}
+          RESOURCE_GROUP: ${{ inputs.resource-group }}
+          PARAMETER_FILE: ${{ inputs.parameter-file }}
+        run: |
+          set -euo pipefail
+          outputs=$(az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "collage-${GITHUB_RUN_ID}" \
+            --template-file infra/main.bicep \
+            --parameters "$PARAMETER_FILE" \
+            --parameters appVersion="$APP_VERSION" \
+            --query properties.outputs -o json)
+
+          web_app_name=$(echo "$outputs" | jq -r '.webAppName.value')
+          url=$(echo "$outputs" | jq -r '.webAppUrl.value')
+
+          echo "webAppName=$web_app_name" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed infrastructure for $web_app_name ($url)"
+
+      - name: Download web package
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: web-package
+
+      - name: Zip web package
+        run: |
+          set -euo pipefail
+          cd web-package
+          zip -r -q ../web-package.zip .
+          cd ..
+          ls -lh web-package.zip
+
+      - name: Deploy web package
+        env:
+          RESOURCE_GROUP: ${{ inputs.resource-group }}
+          WEB_APP_NAME: ${{ steps.provision.outputs.webAppName }}
+        run: |
+          set -euo pipefail
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEB_APP_NAME" \
+            --src-path web-package.zip \
+            --type zip \
+            --restart true
+
+      - name: Smoke test
+        env:
+          URL: ${{ steps.provision.outputs.url }}
+        run: |
+          set -euo pipefail
+          echo "Probing $URL/healthz"
+          for attempt in $(seq 1 30); do
+            code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 15 "$URL/healthz" || true)
+            if [ "$code" = "200" ]; then
+              cat /tmp/health.json
+              echo
+              index=$(curl -s -o /tmp/index.html -w '%{http_code}' --max-time 15 "$URL/" || true)
+              if [ "$index" != "200" ]; then
+                echo "::error::The application root returned HTTP $index"
+                exit 1
+              fi
+              grep -q "Collage Studio" /tmp/index.html || {
+                echo "::error::The served page does not look like the Collage Studio client"
+                exit 1
+              }
+              echo "Smoke test passed on attempt $attempt"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $code, retrying in 10s"
+            sleep 10
+          done
+          echo "::error::The application never became healthy"
+          exit 1
+
+      - name: Publish summary
+        if: always()
+        env:
+          URL: ${{ steps.provision.outputs.url }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          {
+            echo "### ${ENVIRONMENT} deployment"
+            echo
+            echo "- URL: ${URL}"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

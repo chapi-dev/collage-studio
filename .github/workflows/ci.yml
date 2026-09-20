@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "20"
+  APP_VERSION: ${{ github.sha }}
+
+jobs:
+  quality:
+    name: Lint, typecheck and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared engine
+        run: npm run build:core
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build web client
+        run: npm run build:web
+
+      - name: Create App Service package
+        run: npm run package -w @collage/web
+
+      - name: Upload deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-package
+          path: apps/web/package
+          retention-days: 7
+          if-no-files-found: error
+
+  mobile:
+    name: Mobile bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared engine
+        run: npm run build:core
+
+      - name: Typecheck mobile app
+        run: npm run typecheck -w @collage/mobile
+
+      - name: Bundle Android JavaScript
+        working-directory: apps/mobile
+        env:
+          EXPO_NO_TELEMETRY: "1"
+        run: npx expo export --platform android --output-dir dist
+
+      - name: Bundle iOS JavaScript
+        working-directory: apps/mobile
+        env:
+          EXPO_NO_TELEMETRY: "1"
+        run: npx expo export --platform ios --output-dir dist-ios
+
+  infra:
+    name: Validate infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Bicep templates
+        run: |
+          az bicep install
+          az bicep build --file infra/main.bicep --outfile /tmp/main.json
+          az bicep build-params --file infra/dev.bicepparam --outfile /tmp/dev.parameters.json
+          az bicep build-params --file infra/prod.bicepparam --outfile /tmp/prod.parameters.json
+
+      - name: Lint Bicep templates
+        run: az bicep lint --file infra/main.bicep

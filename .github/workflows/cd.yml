@@ -1,0 +1,95 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  workflow_dispatch:
+    inputs:
+      deploy-prod:
+        description: Also promote this build to production
+        type: boolean
+        default: true
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  build:
+    name: Build release artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared engine
+        run: npm run build:core
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build web client
+        env:
+          APP_VERSION: ${{ github.sha }}
+        run: npm run build:web
+
+      - name: Create App Service package
+        env:
+          APP_VERSION: ${{ github.sha }}
+        run: npm run package -w @collage/web
+
+      - name: Upload deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-package
+          path: apps/web/package
+          retention-days: 30
+          if-no-files-found: error
+
+  dev:
+    name: Deploy to dev
+    needs: build
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: dev
+      resource-group: rg-collage-studio-dev
+      parameter-file: infra/dev.bicepparam
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+  prod:
+    name: Deploy to prod
+    needs: dev
+    if: github.event_name == 'push' || inputs.deploy-prod
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: prod
+      resource-group: rg-collage-studio-prod
+      parameter-file: infra/prod.bicepparam
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

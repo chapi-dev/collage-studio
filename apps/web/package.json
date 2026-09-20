@@ -1,0 +1,35 @@
+{
+  "name": "@collage/web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Collage Studio web client",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.app.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "node server/server.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {
+    "@collage/core": "*",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^25.0.1",
+    "vite": "^7.3.6",
+    "vitest": "^5.0.0"
+  }
+}

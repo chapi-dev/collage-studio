@@ -1,0 +1,46 @@
+{
+  "name": "collage-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Professional multi-photo collage studio for web, iOS and Android",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/web",
+    "apps/mobile"
+  ],
+  "scripts": {
+    "build:core": "npm run build --workspace @collage/core",
+    "build:web": "npm run build:core && npm run build --workspace @collage/web",
+    "build": "npm run build:web",
+    "dev": "npm run build:core && npm run dev --workspace @collage/web",
+    "dev:mobile": "npm run build:core && npm run start --workspace @collage/mobile",
+    "test": "npm run build:core && npm run test --workspace @collage/core && npm run test --workspace @collage/web",
+    "test:core": "npm run build:core && npm run test --workspace @collage/core",
+    "typecheck": "npm run build:core && npm run typecheck --workspace @collage/core && npm run typecheck --workspace @collage/web && npm run typecheck --workspace @collage/mobile",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "package": "npm run build:web && npm run package --workspace @collage/web",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.19.0"
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3"
+  }
+}

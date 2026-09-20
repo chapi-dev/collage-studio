@@ -1,0 +1,64 @@
+name: Infrastructure what-if
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra-what-if.yml"
+
+concurrency:
+  group: what-if-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  what-if:
+    name: What-if (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: dev
+            resource-group: rg-collage-studio-dev
+            parameter-file: infra/dev.bicepparam
+          - environment: prod
+            resource-group: rg-collage-studio-prod
+            parameter-file: infra/prod.bicepparam
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run what-if
+        id: whatif
+        env:
+          RESOURCE_GROUP: ${{ matrix.resource-group }}
+          PARAMETER_FILE: ${{ matrix.parameter-file }}
+          APP_VERSION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          az deployment group what-if \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/main.bicep \
+            --parameters "$PARAMETER_FILE" \
+            --parameters appVersion="$APP_VERSION" \
+            --no-pretty-print > what-if.json
+
+          {
+            echo "### What-if · ${{ matrix.environment }}"
+            echo
+            echo '```json'
+            jq '[.changes[] | {changeType, resourceId}]' what-if.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

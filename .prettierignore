@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+coverage
+.expo
+apps/web/package
+package-lock.json
+*.bicep
+infra/**/*.json
+apps/mobile/assets

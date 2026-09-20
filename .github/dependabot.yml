@@ -1,0 +1,47 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      react:
+        patterns:
+          - react
+          - react-dom
+          - '@types/react'
+          - '@types/react-dom'
+      expo:
+        patterns:
+          - expo
+          - 'expo-*'
+          - react-native
+          - 'react-native-*'
+      tooling:
+        patterns:
+          - eslint
+          - 'eslint-*'
+          - '@typescript-eslint/*'
+          - typescript-eslint
+          - prettier
+          - typescript
+          - vite
+          - vitest
+          - '@vitejs/*'
+          - '@vitest/*'
+    ignore:
+      # Expo SDK upgrades are coordinated releases, never a dependency bump.
+      - dependency-name: expo
+        update-types: [version-update:semver-major]
+      - dependency-name: react-native
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
