@@ -31,7 +31,7 @@ jobs:
             resource-group: rg-collage-studio-prod
             parameter-file: infra/prod.bicepparam
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Sign in to Azure
         uses: azure/login@v2
