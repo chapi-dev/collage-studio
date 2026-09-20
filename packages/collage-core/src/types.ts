@@ -15,6 +15,20 @@ export interface Rect {
   height: number;
 }
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * How every cell is dressed.
+ *
+ * - `clean`: rounded rectangles, the classic grid collage.
+ * - `torn`: scraps of paper with hand-torn edges and a white fibrous lip.
+ * - `polaroid`: instant-film cards with a thick bottom margin, scattered.
+ */
+export type FrameStyle = 'clean' | 'torn' | 'polaroid';
+
 export type RatioGroup = 'square' | 'portrait' | 'landscape';
 
 export interface AspectRatio {
@@ -56,6 +70,14 @@ export interface CollageStyle {
   borderColor: string;
   /** Drop shadow strength for the cells (0..1). */
   shadow: number;
+  /** How every cell is dressed. */
+  frameStyle: FrameStyle;
+  /** Paper colour for the torn and polaroid styles. */
+  paperColor: string;
+  /** How wild the expressive styles get: rotation, overlap and tear size (0..1). */
+  scatter: number;
+  /** Reroll this to get a different, but still reproducible, arrangement. */
+  seed: number;
 }
 
 /**
@@ -71,10 +93,18 @@ export interface PhotoTransform {
 
 export interface CollageFrame {
   index: number;
-  /** Cell rectangle in output pixels. */
+  /** Area the photo is drawn into, before rotation. */
   rect: Rect;
   /** Corner radius in output pixels. */
   radius: number;
+  /** Rotation in radians, applied around the centre of `outer`. */
+  rotation: number;
+  /** Everything the cell paints, including paper margins, before rotation. */
+  outer: Rect;
+  /** Torn paper silhouette in output pixels. Only set by the `torn` style. */
+  paper?: Point[];
+  /** Photo opening inside the torn silhouette. Only set by the `torn` style. */
+  opening?: Point[];
 }
 
 export interface CollagePlan {

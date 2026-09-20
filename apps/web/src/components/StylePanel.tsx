@@ -1,23 +1,82 @@
-import { BACKGROUND_SWATCHES, MAX_ZOOM, STYLE_PRESETS } from '@collage/core';
+import {
+  BACKGROUND_SWATCHES,
+  MAX_ZOOM,
+  PAPER_SWATCHES,
+  STYLE_PRESETS,
+  type FrameStyle,
+} from '@collage/core';
 import { useStudio } from '../state/store';
 import { ChipGroup, Section, Slider, Swatches } from './ui';
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
+
+const FRAME_STYLES: Array<{ id: FrameStyle; label: string }> = [
+  { id: 'torn', label: 'Torn paper' },
+  { id: 'polaroid', label: 'Polaroid' },
+  { id: 'clean', label: 'Clean' },
+];
 
 export function StylePanel() {
   const style = useStudio((state) => state.style);
   const stylePresetId = useStudio((state) => state.stylePresetId);
   const applyStylePreset = useStudio((state) => state.applyStylePreset);
   const patchStyle = useStudio((state) => state.patchStyle);
+  const shuffleSeed = useStudio((state) => state.shuffleSeed);
+
+  const expressive = style.frameStyle !== 'clean';
 
   return (
-    <Section title="Style" hint="Spacing, corners and background">
+    <Section
+      title="Style"
+      hint="Presets, paper and spacing"
+      action={
+        expressive ? (
+          <div className="section__actions">
+            <button type="button" className="button button--ghost" onClick={shuffleSeed}>
+              Reshuffle
+            </button>
+          </div>
+        ) : undefined
+      }
+    >
       <ChipGroup
         options={STYLE_PRESETS.map((preset) => ({ id: preset.id, label: preset.label }))}
         value={stylePresetId}
         onChange={applyStylePreset}
         ariaLabel="Style preset"
       />
+
+      <div className="format__group">
+        <span className="format__group-label">Frame</span>
+        <ChipGroup
+          options={FRAME_STYLES}
+          value={style.frameStyle}
+          onChange={(frameStyle) => patchStyle({ frameStyle: frameStyle as FrameStyle })}
+          ariaLabel="Frame style"
+        />
+      </div>
+
+      {expressive ? (
+        <>
+          <Slider
+            label={style.frameStyle === 'torn' ? 'Tear' : 'Scatter'}
+            value={style.scatter}
+            min={0}
+            max={1}
+            step={0.02}
+            format={(value) => `${Math.round(value * 100)}%`}
+            onChange={(scatter) => patchStyle({ scatter })}
+          />
+          <div className="format__group">
+            <span className="format__group-label">Paper</span>
+            <Swatches
+              colors={PAPER_SWATCHES}
+              value={style.paperColor}
+              onChange={(paperColor) => patchStyle({ paperColor })}
+            />
+          </div>
+        </>
+      ) : null}
 
       <Slider
         label="Spacing"
@@ -37,15 +96,17 @@ export function StylePanel() {
         format={percent}
         onChange={(padding) => patchStyle({ padding })}
       />
-      <Slider
-        label="Corners"
-        value={style.cornerRadius}
-        min={0}
-        max={0.5}
-        step={0.005}
-        format={percent}
-        onChange={(cornerRadius) => patchStyle({ cornerRadius })}
-      />
+      {style.frameStyle === 'clean' ? (
+        <Slider
+          label="Corners"
+          value={style.cornerRadius}
+          min={0}
+          max={0.5}
+          step={0.005}
+          format={percent}
+          onChange={(cornerRadius) => patchStyle({ cornerRadius })}
+        />
+      ) : null}
       <Slider
         label="Shadow"
         value={style.shadow}
@@ -55,17 +116,19 @@ export function StylePanel() {
         format={(value) => (value === 0 ? 'Off' : `${Math.round(value * 100)}%`)}
         onChange={(shadow) => patchStyle({ shadow })}
       />
-      <Slider
-        label="Outline"
-        value={style.borderWidth}
-        min={0}
-        max={0.012}
-        step={0.0005}
-        format={(value) => (value === 0 ? 'Off' : percent(value))}
-        onChange={(borderWidth) => patchStyle({ borderWidth })}
-      />
+      {style.frameStyle === 'clean' ? (
+        <Slider
+          label="Outline"
+          value={style.borderWidth}
+          min={0}
+          max={0.012}
+          step={0.0005}
+          format={(value) => (value === 0 ? 'Off' : percent(value))}
+          onChange={(borderWidth) => patchStyle({ borderWidth })}
+        />
+      ) : null}
 
-      {style.borderWidth > 0 ? (
+      {style.frameStyle === 'clean' && style.borderWidth > 0 ? (
         <label className="colour-row">
           <span>Outline colour</span>
           <input

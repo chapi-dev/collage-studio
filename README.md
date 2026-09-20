@@ -28,8 +28,12 @@ Both expose `/healthz`, which reports the commit currently being served.
   resolutions from 1080 px to 4096 px on the long edge.
 - Curated layout templates for 1–9 photos plus generated grids up to 12 photos.
 - Per cell framing: zoom (1×–4×) and pan, with the crop maths shared by both clients.
-- Six style presets plus manual control of gutter, outer margin, corner radius, cell
-  border, drop shadow and background colour.
+- Three frame styles shared by both clients: **torn paper** (hand-torn silhouettes with a
+  fibrous lip), **polaroid** (tilted instant-film cards) and **clean** (the classic grid).
+  Every tear and tilt comes from a seed, so a collage is reproducible and "Reshuffle"
+  rearranges it without changing the look.
+- Nine style presets plus manual control of tear/scatter, paper colour, gutter, outer
+  margin, corner radius, cell border, drop shadow and background colour.
 - PNG / JPEG / WebP export on web, PNG / JPEG save-to-gallery and share on mobile.
 - Exact output resolution: the preview is always a scaled copy of the real export plan,
   so what you see is what you get.
@@ -37,7 +41,7 @@ Both expose `/healthz`, which reports the commit currently being served.
 ## Repository layout
 
 ```
-packages/collage-core   Layout templates, geometry, aspect ratios, presets (28 unit tests)
+packages/collage-core   Layout templates, geometry, torn paper maths, presets (38 unit tests)
 apps/web                React client + zero dependency Node static server for App Service
 apps/mobile             Expo application (iOS + Android)
 infra                   Bicep: App Service plan, web app, Log Analytics, App Insights

@@ -1,11 +1,34 @@
 import { forwardRef } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
-import { computeCoverLayout, type CollagePlan } from '@collage/core';
+import { Image, StyleSheet, View, type ViewStyle } from 'react-native';
+import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg';
+import {
+  computeCoverLayout,
+  toSvgPath,
+  type CollageFrame,
+  type CollagePlan,
+  type Point,
+} from '@collage/core';
 import type { MobilePhoto } from '../state/store';
 
 interface CollageCanvasProps {
   plan: CollagePlan;
   photos: MobilePhoto[];
+}
+
+/** Places a frame's footprint and applies its tilt, so children use local coordinates. */
+function frameWrapperStyle(frame: CollageFrame): ViewStyle {
+  return {
+    position: 'absolute',
+    left: frame.outer.x,
+    top: frame.outer.y,
+    width: frame.outer.width,
+    height: frame.outer.height,
+    transform: frame.rotation ? [{ rotate: `${(frame.rotation * 180) / Math.PI}deg` }] : undefined,
+  };
+}
+
+function toLocal(points: Point[], frame: CollageFrame): Point[] {
+  return points.map((point) => ({ x: point.x - frame.outer.x, y: point.y - frame.outer.y }));
 }
 
 /**
@@ -20,7 +43,19 @@ export const CollageCanvas = forwardRef<View, CollageCanvasProps>(function Colla
   ref,
 ) {
   const shortEdge = Math.min(plan.canvas.width, plan.canvas.height);
-  const shadow = plan.style.shadow;
+  const { style } = plan;
+  const shadow = style.shadow;
+
+  const shadowStyle: ViewStyle | null =
+    shadow > 0
+      ? {
+          shadowColor: '#000000',
+          shadowOpacity: 0.45 * shadow,
+          shadowRadius: Math.max(1, shortEdge * 0.02 * shadow),
+          shadowOffset: { width: 0, height: Math.max(1, shortEdge * 0.008 * shadow) },
+          elevation: Math.round(12 * shadow),
+        }
+      : null;
 
   return (
     <View
@@ -32,66 +67,110 @@ export const CollageCanvas = forwardRef<View, CollageCanvasProps>(function Colla
         {
           width: plan.canvas.width,
           height: plan.canvas.height,
-          backgroundColor: plan.style.background,
+          backgroundColor: style.background,
         },
       ]}
     >
       {plan.frames.map((frame) => {
         const photo = photos[frame.index];
-        const cell = {
-          position: 'absolute' as const,
-          left: frame.rect.x,
-          top: frame.rect.y,
+        const localRect = {
+          x: frame.rect.x - frame.outer.x,
+          y: frame.rect.y - frame.outer.y,
           width: frame.rect.width,
           height: frame.rect.height,
-          borderRadius: frame.radius,
         };
 
-        const shadowStyle =
-          shadow > 0
+        const cover = photo
+          ? computeCoverLayout(
+              { width: photo.width, height: photo.height },
+              { width: frame.rect.width, height: frame.rect.height },
+              photo.transform,
+            )
+          : null;
+
+        if (style.frameStyle === 'torn' && frame.paper && frame.opening) {
+          const clipId = `opening-${frame.index}`;
+          const paperPath = toSvgPath(toLocal(frame.paper, frame));
+          const openingPath = toSvgPath(toLocal(frame.opening, frame));
+          const drop = Math.max(1, shortEdge * 0.006 * shadow);
+
+          return (
+            <View key={`frame-${frame.index}`} style={frameWrapperStyle(frame)}>
+              <Svg width={frame.outer.width} height={frame.outer.height}>
+                <Defs>
+                  <ClipPath id={clipId}>
+                    <Path d={openingPath} />
+                  </ClipPath>
+                </Defs>
+                {shadow > 0 ? (
+                  <Path d={paperPath} fill="#000000" opacity={0.28 * shadow} y={drop} />
+                ) : null}
+                <Path d={paperPath} fill={style.paperColor} />
+                {photo && cover ? (
+                  <SvgImage
+                    href={{ uri: photo.uri }}
+                    x={localRect.x + (localRect.width - cover.width) / 2 + cover.translateX}
+                    y={localRect.y + (localRect.height - cover.height) / 2 + cover.translateY}
+                    width={cover.width}
+                    height={cover.height}
+                    preserveAspectRatio="none"
+                    clipPath={`url(#${clipId})`}
+                  />
+                ) : (
+                  <Path d={openingPath} fill="rgba(120,124,138,0.22)" />
+                )}
+              </Svg>
+            </View>
+          );
+        }
+
+        const paperCard =
+          style.frameStyle === 'polaroid'
             ? {
-                shadowColor: '#000000',
-                shadowOpacity: 0.45 * shadow,
-                shadowRadius: Math.max(1, shortEdge * 0.02 * shadow),
-                shadowOffset: { width: 0, height: Math.max(1, shortEdge * 0.008 * shadow) },
-                elevation: Math.round(12 * shadow),
+                position: 'absolute' as const,
+                left: 0,
+                top: 0,
+                width: frame.outer.width,
+                height: frame.outer.height,
+                borderRadius: frame.radius,
+                backgroundColor: style.paperColor,
               }
             : null;
 
-        if (!photo) {
-          return <View key={`empty-${frame.index}`} style={[cell, styles.empty, shadowStyle]} />;
-        }
-
-        const cover = computeCoverLayout(
-          { width: photo.width, height: photo.height },
-          { width: frame.rect.width, height: frame.rect.height },
-          photo.transform,
-        );
-
         return (
-          <View key={photo.id} style={[cell, shadowStyle]}>
+          <View key={`frame-${frame.index}`} style={frameWrapperStyle(frame)}>
+            {paperCard ? <View style={[paperCard, shadowStyle]} /> : null}
             <View
               style={[
                 styles.clip,
                 {
+                  position: 'absolute',
+                  left: localRect.x,
+                  top: localRect.y,
+                  width: localRect.width,
+                  height: localRect.height,
                   borderRadius: frame.radius,
-                  borderWidth: plan.borderWidth,
-                  borderColor: plan.style.borderColor,
+                  borderWidth: style.frameStyle === 'clean' ? plan.borderWidth : 0,
+                  borderColor: style.borderColor,
                 },
+                paperCard ? null : shadowStyle,
+                photo ? null : styles.empty,
               ]}
             >
-              <Image
-                source={{ uri: photo.uri }}
-                fadeDuration={0}
-                resizeMode="cover"
-                style={{
-                  position: 'absolute',
-                  width: cover.width,
-                  height: cover.height,
-                  left: (frame.rect.width - cover.width) / 2 + cover.translateX,
-                  top: (frame.rect.height - cover.height) / 2 + cover.translateY,
-                }}
-              />
+              {photo && cover ? (
+                <Image
+                  source={{ uri: photo.uri }}
+                  fadeDuration={0}
+                  resizeMode="cover"
+                  style={{
+                    position: 'absolute',
+                    width: cover.width,
+                    height: cover.height,
+                    left: (localRect.width - cover.width) / 2 + cover.translateX,
+                    top: (localRect.height - cover.height) / 2 + cover.translateY,
+                  }}
+                />
+              ) : null}
             </View>
           </View>
         );
@@ -102,6 +181,6 @@ export const CollageCanvas = forwardRef<View, CollageCanvasProps>(function Colla
 
 const styles = StyleSheet.create({
   canvas: { overflow: 'hidden' },
-  clip: { flex: 1, overflow: 'hidden', backgroundColor: '#000000' },
+  clip: { overflow: 'hidden', backgroundColor: '#000000' },
   empty: { backgroundColor: 'rgba(255,255,255,0.06)' },
 });

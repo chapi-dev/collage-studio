@@ -3,6 +3,7 @@ import {
   MAX_ZOOM,
   clamp,
   createPlan,
+  deltaToFrameSpace,
   fitContain,
   getQuality,
   getRatio,
@@ -117,11 +118,11 @@ export function CanvasStage() {
       const slackX = (photo.width - frameWidth / cover) / 2;
       const slackY = (photo.height - frameHeight / cover) / 2;
 
-      const dxPlan = dxCss * scale;
-      const dyPlan = dyCss * scale;
+      // Tilted cells pan along their own axes, not the canvas ones.
+      const local = deltaToFrameSpace(frame, dxCss * scale, dyCss * scale);
 
-      const deltaX = slackX > 0.01 ? -dxPlan / (cover * slackX) : 0;
-      const deltaY = slackY > 0.01 ? -dyPlan / (cover * slackY) : 0;
+      const deltaX = slackX > 0.01 ? -local.x / (cover * slackX) : 0;
+      const deltaY = slackY > 0.01 ? -local.y / (cover * slackY) : 0;
       if (deltaX === 0 && deltaY === 0) return;
       nudgeTransform(index, deltaX, deltaY);
     },

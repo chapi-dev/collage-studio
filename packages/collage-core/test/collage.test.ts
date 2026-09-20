@@ -15,8 +15,10 @@ import {
   hitTest,
   normaliseTransform,
   resolveFrames,
+  rotateDelta,
   STYLE_PRESETS,
   suggestFileName,
+  toSvgPath,
 } from '../src/index.js';
 
 const EPSILON = 1e-6;
@@ -277,5 +279,120 @@ describe('presets', () => {
   it('builds a deterministic file name', () => {
     const name = suggestFileName('9:16', new Date(2026, 0, 2, 3, 4));
     expect(name).toBe('collage-9x16-202601020304');
+  });
+});
+
+describe('expressive frame styles', () => {
+  const canvas = { width: 1080, height: 1080 };
+  const template = getLayout(4, undefined);
+
+  const build = (overrides: Partial<typeof DEFAULT_STYLE>) =>
+    resolveFrames(template, canvas, { ...DEFAULT_STYLE, ...overrides });
+
+  it('leaves clean frames upright and undecorated', () => {
+    for (const frame of build({ frameStyle: 'clean' })) {
+      expect(frame.rotation).toBe(0);
+      expect(frame.outer).toEqual(frame.rect);
+      expect(frame.paper).toBeUndefined();
+    }
+  });
+
+  it('gives polaroids a deeper bottom margin than the sides', () => {
+    for (const frame of build({ frameStyle: 'polaroid', scatter: 0.5 })) {
+      const left = frame.rect.x - frame.outer.x;
+      const right = frame.outer.x + frame.outer.width - (frame.rect.x + frame.rect.width);
+      const top = frame.rect.y - frame.outer.y;
+      const bottom = frame.outer.y + frame.outer.height - (frame.rect.y + frame.rect.height);
+
+      expect(left).toBeGreaterThan(0);
+      expect(right).toBeCloseTo(left, 6);
+      expect(top).toBeCloseTo(left, 6);
+      expect(bottom).toBeGreaterThan(top * 1.5);
+    }
+  });
+
+  it('keeps tilted cards inside the canvas', () => {
+    for (const frame of build({ frameStyle: 'polaroid', scatter: 1, padding: 0 })) {
+      const cos = Math.abs(Math.cos(frame.rotation));
+      const sin = Math.abs(Math.sin(frame.rotation));
+      const width = frame.outer.width * cos + frame.outer.height * sin;
+      const height = frame.outer.width * sin + frame.outer.height * cos;
+      const x = frame.outer.x + (frame.outer.width - width) / 2;
+      const y = frame.outer.y + (frame.outer.height - height) / 2;
+
+      expect(x).toBeGreaterThanOrEqual(-EPSILON);
+      expect(y).toBeGreaterThanOrEqual(-EPSILON);
+      expect(x + width).toBeLessThanOrEqual(canvas.width + EPSILON);
+      expect(y + height).toBeLessThanOrEqual(canvas.height + EPSILON);
+    }
+  });
+
+  it('does not rotate or grow anything when scatter is zero', () => {
+    for (const frame of build({ frameStyle: 'polaroid', scatter: 0 })) {
+      expect(frame.rotation).toBe(0);
+    }
+  });
+
+  it('wraps torn frames in a paper outline around the photo opening', () => {
+    for (const frame of build({ frameStyle: 'torn', scatter: 0.6 })) {
+      expect(frame.paper).toBeDefined();
+      expect(frame.opening).toBeDefined();
+      expect(frame.paper!.length).toBe(frame.opening!.length);
+      expect(frame.paper!.length).toBeGreaterThan(16);
+      for (const point of frame.paper!) {
+        expect(Number.isFinite(point.x)).toBe(true);
+        expect(Number.isFinite(point.y)).toBe(true);
+      }
+    }
+  });
+
+  it('rebuilds the exact same tear for the same seed', () => {
+    const a = build({ frameStyle: 'torn', seed: 7 });
+    const b = build({ frameStyle: 'torn', seed: 7 });
+    const c = build({ frameStyle: 'torn', seed: 8 });
+
+    expect(a[0].paper).toEqual(b[0].paper);
+    expect(a[0].paper).not.toEqual(c[0].paper);
+  });
+
+  it('gives every cell its own tear', () => {
+    const frames = build({ frameStyle: 'torn', seed: 3 });
+    expect(toSvgPath(frames[0].paper!)).not.toBe(toSvgPath(frames[1].paper!));
+  });
+
+  it('finds the cell under a point on a tilted card', () => {
+    const frames = build({ frameStyle: 'polaroid', scatter: 1 });
+    for (const frame of frames) {
+      const cx = frame.rect.x + frame.rect.width / 2;
+      const cy = frame.rect.y + frame.rect.height / 2;
+      const ox = frame.outer.x + frame.outer.width / 2;
+      const oy = frame.outer.y + frame.outer.height / 2;
+      const cos = Math.cos(frame.rotation);
+      const sin = Math.sin(frame.rotation);
+      // Rotate the cell centre the way the renderer does before probing it.
+      const x = ox + (cx - ox) * cos - (cy - oy) * sin;
+      const y = oy + (cx - ox) * sin + (cy - oy) * cos;
+
+      expect(hitTest(frames, x, y)).toBe(frame.index);
+    }
+  });
+
+  it('rotates drag deltas into the frame axes', () => {
+    expect(rotateDelta(0, 3, 5)).toEqual({ x: 3, y: 5 });
+
+    const quarter = rotateDelta(Math.PI / 2, 1, 0);
+    expect(quarter.x).toBeCloseTo(0, 6);
+    expect(quarter.y).toBeCloseTo(-1, 6);
+  });
+
+  it('serialises a polygon to a closed SVG path', () => {
+    expect(
+      toSvgPath([
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+      ]),
+    ).toBe('M0.00 0.00L10.00 0.00L10.00 10.00Z');
+    expect(toSvgPath([])).toBe('');
   });
 });

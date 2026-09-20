@@ -1,6 +1,6 @@
 import { useMemo, useRef, type RefObject } from 'react';
 import { PanResponder, StyleSheet, Text, View } from 'react-native';
-import { computeCoverLayout, hitTest, type CollagePlan } from '@collage/core';
+import { computeCoverLayout, hitTest, rotateDelta, type CollagePlan } from '@collage/core';
 import { CollageCanvas } from './CollageCanvas';
 import { useStudio, type MobilePhoto } from '../state/store';
 import { colors, radius } from '../theme';
@@ -30,7 +30,7 @@ export function CollageStage({ plan, photos, box, canvasRef, selected }: Collage
   const context = useRef({ plan, scale });
   context.current = { plan, scale };
 
-  const drag = useRef({ index: -1, slackX: 0, slackY: 0, startX: 0, startY: 0 });
+  const drag = useRef({ index: -1, slackX: 0, slackY: 0, startX: 0, startY: 0, rotation: 0 });
 
   const responder = useMemo(
     () =>
@@ -68,13 +68,16 @@ export function CollageStage({ plan, photos, box, canvasRef, selected }: Collage
           drag.current.slackY = (cover.height - frame.rect.height) / 2;
           drag.current.startX = photo.transform.offsetX;
           drag.current.startY = photo.transform.offsetY;
+          drag.current.rotation = frame.rotation;
         },
         onPanResponderMove: (_event, gesture) => {
-          const { index, slackX, slackY, startX, startY } = drag.current;
+          const { index, slackX, slackY, startX, startY, rotation } = drag.current;
           if (index < 0) return;
           const { scale: currentScale } = context.current;
-          const offsetX = slackX > 0.5 ? startX - gesture.dx / currentScale / slackX : startX;
-          const offsetY = slackY > 0.5 ? startY - gesture.dy / currentScale / slackY : startY;
+          // Tilted cells pan along their own axes, not the screen ones.
+          const local = rotateDelta(rotation, gesture.dx / currentScale, gesture.dy / currentScale);
+          const offsetX = slackX > 0.5 ? startX - local.x / slackX : startX;
+          const offsetY = slackY > 0.5 ? startY - local.y / slackY : startY;
           useStudio.getState().patchTransform(index, { offsetX, offsetY });
         },
         onPanResponderRelease: () => {
@@ -112,15 +115,28 @@ export function CollageStage({ plan, photos, box, canvasRef, selected }: Collage
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: selectedFrame.rect.x * scale,
-              top: selectedFrame.rect.y * scale,
-              width: selectedFrame.rect.width * scale,
-              height: selectedFrame.rect.height * scale,
-              borderRadius: selectedFrame.radius * scale,
-              borderWidth: 2,
-              borderColor: colors.accent,
+              left: selectedFrame.outer.x * scale,
+              top: selectedFrame.outer.y * scale,
+              width: selectedFrame.outer.width * scale,
+              height: selectedFrame.outer.height * scale,
+              transform: selectedFrame.rotation
+                ? [{ rotate: `${(selectedFrame.rotation * 180) / Math.PI}deg` }]
+                : undefined,
             }}
-          />
+          >
+            <View
+              style={{
+                position: 'absolute',
+                left: (selectedFrame.rect.x - selectedFrame.outer.x) * scale,
+                top: (selectedFrame.rect.y - selectedFrame.outer.y) * scale,
+                width: selectedFrame.rect.width * scale,
+                height: selectedFrame.rect.height * scale,
+                borderRadius: selectedFrame.radius * scale,
+                borderWidth: 2,
+                borderColor: colors.accent,
+              }}
+            />
+          </View>
         ) : null}
       </View>
 

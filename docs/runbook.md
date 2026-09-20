@@ -152,6 +152,22 @@ token, i.e. run after `azure/login`, never with a publish profile.
 npx eas build --profile development --platform android
 ```
 
+**The editor collapses into a narrow strip with a horizontal scrollbar**
+Three different causes have produced this, all worth checking in order:
+
+1. A class name collision in `global.css`. The file is flat and global, so a later rule
+   with the same specificity silently wins. Prefix component classes (`.layout-card`, not
+   `.layout`).
+2. The `<canvas>` being an in-flow flex item. A replaced element defaults to
+   `min-width: auto`, so it pins the stage to its own min-content width and then feeds
+   that width back into the `ResizeObserver` that sizes it. Keep it out of flow with
+   `position: absolute` plus a translate. `contentRect` already excludes padding, so the
+   fit maths does not change.
+3. `min-height: 100%` on the app shell. Height then follows content, the `1fr` grid row
+   grows to the full height of the settings panel and the stage is pushed off screen. The
+   root needs a real `height: 100%` with `overflow: hidden` on desktop so the panel
+   scrolls instead.
+
 ## Cost control
 
 `dev` runs on B1 (~13 EUR/month) and `prod` on P0v3 (~60 EUR/month). To pause the

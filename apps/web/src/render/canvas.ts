@@ -1,4 +1,4 @@
-import type { CollagePlan, PhotoTransform } from '@collage/core';
+import type { CollageFrame, CollagePlan, CollageStyle, Point, PhotoTransform } from '@collage/core';
 import { computeSourceCrop } from '@collage/core';
 
 export type DrawableImage = ImageBitmap | HTMLImageElement | HTMLCanvasElement;
@@ -46,9 +46,194 @@ function roundRectPath(
   ctx.closePath();
 }
 
+function polygonPath(ctx: CanvasRenderingContext2D, points: Point[]): void {
+  ctx.beginPath();
+  if (points.length === 0) return;
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i].x, points[i].y);
+  ctx.closePath();
+}
+
+function applyShadow(
+  ctx: CanvasRenderingContext2D,
+  shortEdge: number,
+  strength: number,
+  spread: number,
+): void {
+  ctx.shadowColor = `rgba(0, 0, 0, ${Math.min(0.62, 0.22 + strength * 0.45)})`;
+  ctx.shadowBlur = shortEdge * spread * strength;
+  ctx.shadowOffsetY = shortEdge * spread * 0.32 * strength;
+}
+
+function drawPhoto(
+  ctx: CanvasRenderingContext2D,
+  frame: CollageFrame,
+  photo: RenderPhoto | undefined,
+  shortEdge: number,
+  placeholders: boolean,
+): void {
+  const { rect } = frame;
+  if (photo) {
+    const crop = computeSourceCrop(
+      { width: photo.width, height: photo.height },
+      { width: rect.width, height: rect.height },
+      photo.transform,
+    );
+    ctx.drawImage(
+      photo.source,
+      crop.x,
+      crop.y,
+      crop.width,
+      crop.height,
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+    );
+    return;
+  }
+  if (!placeholders) return;
+  ctx.fillStyle = 'rgba(120, 124, 138, 0.22)';
+  ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+  ctx.lineWidth = Math.max(1, shortEdge * 0.0025);
+  ctx.setLineDash([shortEdge * 0.02, shortEdge * 0.015]);
+  ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+  ctx.setLineDash([]);
+}
+
+/** Scrap of paper with a hand-torn silhouette and a pale fibrous lip. */
+function drawTornFrame(
+  ctx: CanvasRenderingContext2D,
+  style: CollageStyle,
+  frame: CollageFrame,
+  photo: RenderPhoto | undefined,
+  shortEdge: number,
+  placeholders: boolean,
+): void {
+  const { paper, opening } = frame;
+  if (!paper || !opening) return;
+
+  if (style.shadow > 0) {
+    ctx.save();
+    applyShadow(ctx, shortEdge, style.shadow, 0.022);
+    ctx.fillStyle = style.paperColor;
+    polygonPath(ctx, paper);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.fillStyle = style.paperColor;
+  polygonPath(ctx, paper);
+  ctx.fill();
+  // A faint darker rim reads as the thickness of the sheet.
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.09)';
+  ctx.lineWidth = Math.max(0.6, shortEdge * 0.0012);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  polygonPath(ctx, opening);
+  ctx.clip();
+  drawPhoto(ctx, frame, photo, shortEdge, placeholders);
+  ctx.restore();
+
+  ctx.save();
+  polygonPath(ctx, opening);
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.16)';
+  ctx.lineWidth = Math.max(0.6, shortEdge * 0.0016);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Instant-film card: thin margins, a deep one at the bottom, soft shadow. */
+function drawPolaroidFrame(
+  ctx: CanvasRenderingContext2D,
+  style: CollageStyle,
+  frame: CollageFrame,
+  photo: RenderPhoto | undefined,
+  shortEdge: number,
+  placeholders: boolean,
+): void {
+  const { outer, rect, radius } = frame;
+
+  if (style.shadow > 0) {
+    ctx.save();
+    applyShadow(ctx, shortEdge, style.shadow, 0.03);
+    ctx.fillStyle = style.paperColor;
+    roundRectPath(ctx, outer.x, outer.y, outer.width, outer.height, radius);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.fillStyle = style.paperColor;
+  roundRectPath(ctx, outer.x, outer.y, outer.width, outer.height, radius);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  roundRectPath(ctx, rect.x, rect.y, rect.width, rect.height, radius);
+  ctx.clip();
+  drawPhoto(ctx, frame, photo, shortEdge, placeholders);
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)';
+  ctx.lineWidth = Math.max(0.6, shortEdge * 0.0016);
+  roundRectPath(ctx, rect.x, rect.y, rect.width, rect.height, radius);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** The classic grid cell: rounded rectangle, optional outline. */
+function drawCleanFrame(
+  ctx: CanvasRenderingContext2D,
+  plan: CollagePlan,
+  frame: CollageFrame,
+  photo: RenderPhoto | undefined,
+  shortEdge: number,
+  placeholders: boolean,
+): void {
+  const { style } = plan;
+  const { rect, radius } = frame;
+
+  if (style.shadow > 0) {
+    ctx.save();
+    applyShadow(ctx, shortEdge, style.shadow, 0.02);
+    ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    roundRectPath(ctx, rect.x, rect.y, rect.width, rect.height, radius);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.save();
+  roundRectPath(ctx, rect.x, rect.y, rect.width, rect.height, radius);
+  ctx.clip();
+  drawPhoto(ctx, frame, photo, shortEdge, placeholders);
+  ctx.restore();
+
+  if (plan.borderWidth > 0) {
+    ctx.save();
+    ctx.strokeStyle = style.borderColor;
+    ctx.lineWidth = plan.borderWidth;
+    roundRectPath(
+      ctx,
+      rect.x + plan.borderWidth / 2,
+      rect.y + plan.borderWidth / 2,
+      rect.width - plan.borderWidth,
+      rect.height - plan.borderWidth,
+      Math.max(0, radius - plan.borderWidth / 2),
+    );
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 /**
  * Paints a collage plan. The context must already be scaled so that one unit
- * equals one output pixel; `drawCollageScaled` does that for previews.
+ * equals one output pixel; `drawCollagePreview` does that for previews.
  */
 export function drawCollage(
   ctx: CanvasRenderingContext2D,
@@ -58,77 +243,35 @@ export function drawCollage(
 ): void {
   const { canvas, frames, style } = plan;
   const shortEdge = Math.min(canvas.width, canvas.height);
+  const placeholders = options.placeholders ?? false;
 
   ctx.save();
   ctx.fillStyle = style.background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   for (const frame of frames) {
-    const { rect, radius } = frame;
     const photo = photos[frame.index];
 
-    if (style.shadow > 0) {
-      ctx.save();
-      ctx.shadowColor = `rgba(0, 0, 0, ${Math.min(0.6, style.shadow * 0.6)})`;
-      ctx.shadowBlur = shortEdge * 0.02 * style.shadow;
-      ctx.shadowOffsetY = shortEdge * 0.006 * style.shadow;
-      ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-      roundRectPath(ctx, rect.x, rect.y, rect.width, rect.height, radius);
-      ctx.fill();
-      ctx.restore();
-    }
-
     ctx.save();
-    roundRectPath(ctx, rect.x, rect.y, rect.width, rect.height, radius);
-    ctx.clip();
-
-    if (photo) {
-      const crop = computeSourceCrop(
-        { width: photo.width, height: photo.height },
-        { width: rect.width, height: rect.height },
-        photo.transform,
-      );
-      ctx.drawImage(
-        photo.source,
-        crop.x,
-        crop.y,
-        crop.width,
-        crop.height,
-        rect.x,
-        rect.y,
-        rect.width,
-        rect.height,
-      );
-    } else if (options.placeholders) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-      ctx.lineWidth = Math.max(1, shortEdge * 0.0025);
-      ctx.setLineDash([shortEdge * 0.02, shortEdge * 0.015]);
-      ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-      ctx.setLineDash([]);
+    if (frame.rotation) {
+      const cx = frame.outer.x + frame.outer.width / 2;
+      const cy = frame.outer.y + frame.outer.height / 2;
+      ctx.translate(cx, cy);
+      ctx.rotate(frame.rotation);
+      ctx.translate(-cx, -cy);
     }
 
-    ctx.restore();
-
-    if (plan.borderWidth > 0) {
-      ctx.save();
-      ctx.strokeStyle = style.borderColor;
-      ctx.lineWidth = plan.borderWidth;
-      roundRectPath(
-        ctx,
-        rect.x + plan.borderWidth / 2,
-        rect.y + plan.borderWidth / 2,
-        rect.width - plan.borderWidth,
-        rect.height - plan.borderWidth,
-        Math.max(0, radius - plan.borderWidth / 2),
-      );
-      ctx.stroke();
-      ctx.restore();
+    if (style.frameStyle === 'torn') {
+      drawTornFrame(ctx, style, frame, photo, shortEdge, placeholders);
+    } else if (style.frameStyle === 'polaroid') {
+      drawPolaroidFrame(ctx, style, frame, photo, shortEdge, placeholders);
+    } else {
+      drawCleanFrame(ctx, plan, frame, photo, shortEdge, placeholders);
     }
 
     if (options.highlight === frame.index) {
       const overlay = options.overlayScale ?? 1;
+      const { rect, radius } = frame;
       ctx.save();
       ctx.strokeStyle = '#6ee7ff';
       ctx.lineWidth = Math.max(2 / overlay, shortEdge * 0.004);
@@ -143,6 +286,8 @@ export function drawCollage(
       ctx.stroke();
       ctx.restore();
     }
+
+    ctx.restore();
   }
 
   ctx.restore();

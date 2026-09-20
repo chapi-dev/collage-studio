@@ -55,6 +55,7 @@ interface StudioState {
 
   applyStylePreset: (presetId: string) => void;
   patchStyle: (patch: Partial<CollageStyle>) => void;
+  shuffleSeed: () => void;
 
   setQuality: (qualityId: string) => void;
   setFormat: (format: ExportFormat) => void;
@@ -175,6 +176,12 @@ export const useStudio = create<StudioState>((set, get) => ({
 
   patchStyle: (patch) =>
     set((state) => ({ style: { ...state.style, ...patch }, stylePresetId: null })),
+
+  // Rerolling the seed keeps the preset: it is the same look, rearranged.
+  shuffleSeed: () =>
+    set((state) => ({
+      style: { ...state.style, seed: Math.floor(Math.random() * 1_000_000) + 1 },
+    })),
 
   setQuality: (qualityId) => set({ qualityId }),
   setFormat: (format) => set({ format }),

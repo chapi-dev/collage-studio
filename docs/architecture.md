@@ -31,8 +31,9 @@ source image). Both clients import it, so a layout fix ships everywhere at once.
 | ------------------ | ----------------------------------------------------------------------------------------- |
 | `aspect-ratios.ts` | The 9 output ratios and the 4 quality presets (1080–4096 px long edge).                   |
 | `layouts.ts`       | Curated templates for 1–9 photos plus generated grids, all normalised to the unit square. |
+| `paper.ts`         | Seeded PRNG, periodic noise, torn silhouettes, rectangle helpers, SVG path output.        |
 | `geometry.ts`      | `createPlan`, `resolveFrames`, `computeSourceCrop`, `computeCoverLayout`, `hitTest`.      |
-| `presets.ts`       | Style presets, background swatches, file name suggestion.                                 |
+| `presets.ts`       | Style presets, background and paper swatches, file name suggestion.                       |
 
 Padding and gutter are independent: the drawing area is expanded by half a gutter and
 every cell is inset by the same amount, so the outer margin is exactly `padding` and the
@@ -41,6 +42,24 @@ space between cells is exactly `gutter`.
 `computeSourceCrop` returns the source rectangle for renderers that can crop (Canvas
 `drawImage`), while `computeCoverLayout` returns size plus translation for renderers that
 cannot (React Native `<Image>`). Same inputs, same framing.
+
+### Frame styles
+
+`resolveFrames` dresses every cell according to `style.frameStyle`, and each frame carries
+the result as plain data so both renderers stay dumb:
+
+- `rect` is where the photo goes, `outer` is everything the cell paints (paper margins
+  included) and `rotation` is applied around the centre of `outer`.
+- `torn` also carries `paper` and `opening`, two polygons walked with the same
+  parameterisation and the same noise samples. That is what keeps the white lip between
+  them even all the way around instead of pinching at the corners.
+- Randomness comes from `style.seed` mixed with the cell index, never from `Math.random`,
+  so the preview, the export and the phone all draw the identical collage. "Reshuffle"
+  simply picks a new seed.
+- Tilted cells are pushed back inside the canvas, so a card is never sliced by the edge.
+
+Because rotation exists, `hitTest` maps the probe into the frame's own space and
+`rotateDelta` does the same for drag gestures.
 
 ## Web client
 

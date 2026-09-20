@@ -63,7 +63,11 @@ button {
 .app {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  /* A fixed height is what keeps the stage row bounded by the viewport: with
+     min-height the grid row would grow to fit the settings panel and drag the
+     preview along with it. The panel scrolls on its own instead. */
+  height: 100%;
+  overflow: hidden;
 }
 
 .topbar {
@@ -120,6 +124,10 @@ button {
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
+  /* An explicit row keeps the stage height driven by the viewport. Letting the
+     row size itself from its content would feed the canvas size back into the
+     box the canvas is measured against. */
+  grid-template-rows: minmax(0, 1fr);
   gap: 20px;
   padding: 20px;
   flex: 1;
@@ -127,7 +135,8 @@ button {
 }
 
 .layout__stage {
-  min-height: 420px;
+  min-width: 0;
+  min-height: 0;
   display: flex;
 }
 
@@ -135,8 +144,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
   overflow-y: auto;
-  max-height: calc(100vh - 92px);
   padding-right: 4px;
   scrollbar-width: thin;
 }
@@ -172,6 +181,13 @@ button {
 }
 
 .stage__canvas {
+  /* Out of flow on purpose: an in-flow canvas sets a min-content width on the
+     flex row, so the stage could never shrink back and the measurement that
+     sizes the canvas would feed on itself. */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: block;
   border-radius: 6px;
   touch-action: none;
@@ -375,7 +391,7 @@ button {
   gap: 8px;
 }
 
-.layout {
+.layout-card {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -392,36 +408,36 @@ button {
     background 120ms ease;
 }
 
-.layout:hover {
+.layout-card:hover {
   border-color: var(--border-strong);
 }
 
-.layout--active {
+.layout-card--active {
   border-color: var(--accent);
   background: rgba(110, 231, 255, 0.1);
 }
 
-.layout svg {
+.layout-card svg {
   flex: 1;
   min-height: 0;
 }
 
-.layout svg rect {
+.layout-card svg rect {
   fill: rgba(232, 236, 245, 0.28);
 }
 
-.layout--active svg rect {
+.layout-card--active svg rect {
   fill: var(--accent);
 }
 
-.layout__name {
+.layout-card__name {
   font-size: 10.5px;
   color: var(--text-muted);
   text-align: center;
   line-height: 1.2;
 }
 
-.layout--active .layout__name {
+.layout-card--active .layout-card__name {
   color: var(--text);
 }
 
@@ -630,8 +646,15 @@ button {
 /* ---------- responsive ---------- */
 
 @media (max-width: 1080px) {
+  .app {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
   .layout {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
   }
 
   .layout__panel {
@@ -640,7 +663,9 @@ button {
   }
 
   .layout__stage {
-    min-height: 60vh;
+    /* Tall enough to be usable, but never so tall that a square collage
+       leaves a band of empty stage under it. */
+    min-height: min(60vh, 115vw);
   }
 
   .topbar__tagline {

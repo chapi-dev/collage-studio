@@ -12,6 +12,70 @@ export interface StylePreset {
 /** Curated looks. Each one is a complete, ready to export style. */
 export const STYLE_PRESETS: StylePreset[] = [
   {
+    id: 'torn',
+    label: 'Torn paper',
+    swatch: '#e7dcc8',
+    style: {
+      ...DEFAULT_STYLE,
+      frameStyle: 'torn',
+      gutter: 0.012,
+      padding: 0.045,
+      cornerRadius: 0,
+      background: '#e7dcc8',
+      paperColor: '#fdfaf3',
+      scatter: 0.5,
+      shadow: 0.45,
+    },
+  },
+  {
+    id: 'scrapbook',
+    label: 'Scrapbook',
+    swatch: '#1f2430',
+    style: {
+      ...DEFAULT_STYLE,
+      frameStyle: 'torn',
+      gutter: 0.004,
+      padding: 0.03,
+      cornerRadius: 0,
+      background: '#1f2430',
+      paperColor: '#fffdf6',
+      scatter: 0.92,
+      shadow: 0.8,
+    },
+  },
+  {
+    id: 'polaroid',
+    label: 'Polaroid',
+    swatch: '#f7f4ee',
+    style: {
+      ...DEFAULT_STYLE,
+      frameStyle: 'polaroid',
+      gutter: 0.03,
+      padding: 0.05,
+      cornerRadius: 0,
+      background: '#211c19',
+      paperColor: '#f7f4ee',
+      scatter: 0.45,
+      shadow: 0.7,
+    },
+  },
+  {
+    id: 'pile',
+    label: 'Photo pile',
+    swatch: '#3d2f2a',
+    style: {
+      ...DEFAULT_STYLE,
+      frameStyle: 'polaroid',
+      gutter: 0,
+      padding: 0.02,
+      cornerRadius: 0,
+      background: '#3d2f2a',
+      paperColor: '#fffdf8',
+      scatter: 1,
+      shadow: 0.85,
+    },
+  },
+  {
     id: 'seamless',
     label: 'Seamless',
     swatch: '#111318',
@@ -28,19 +92,6 @@ export const STYLE_PRESETS: StylePreset[] = [
     label: 'Studio',
     swatch: '#0f1115',
     style: { ...DEFAULT_STYLE },
-  },
-  {
-    id: 'polaroid',
-    label: 'Polaroid',
-    swatch: '#ffffff',
-    style: {
-      ...DEFAULT_STYLE,
-      gutter: 0.028,
-      padding: 0.045,
-      cornerRadius: 0.01,
-      background: '#ffffff',
-      shadow: 0.35,
-    },
   },
   {
     id: 'soft',
@@ -82,11 +133,21 @@ export const STYLE_PRESETS: StylePreset[] = [
   },
 ];
 
-export const DEFAULT_STYLE_PRESET_ID = 'studio';
+export const DEFAULT_STYLE_PRESET_ID = 'torn';
 
 export function getStylePreset(id: string): StylePreset {
-  return STYLE_PRESETS.find((preset) => preset.id === id) ?? STYLE_PRESETS[1];
+  return STYLE_PRESETS.find((preset) => preset.id === id) ?? STYLE_PRESETS[0];
 }
+
+/** Paper colours offered for the torn and polaroid styles. */
+export const PAPER_SWATCHES: string[] = [
+  '#fffdf8',
+  '#fdfaf3',
+  '#f7f4ee',
+  '#efe6d4',
+  '#e2d6bd',
+  '#1d1b19',
+];
 
 /** Background colours offered in the colour picker. */
 export const BACKGROUND_SWATCHES: string[] = [

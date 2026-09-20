@@ -57,7 +57,7 @@ export function LayoutPicker() {
             type="button"
             role="radio"
             aria-checked={layout.id === active.id}
-            className={`layout${layout.id === active.id ? ' layout--active' : ''}`}
+            className={`layout-card${layout.id === active.id ? ' layout-card--active' : ''}`}
             onClick={() => setLayout(layout.id)}
             title={layout.name}
           >
@@ -79,7 +79,7 @@ export function LayoutPicker() {
                 />
               ))}
             </svg>
-            <span className="layout__name">{layout.name}</span>
+            <span className="layout-card__name">{layout.name}</span>
           </button>
         ))}
       </div>
