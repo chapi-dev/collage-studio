@@ -123,11 +123,13 @@ package missing `server.mjs`, which means `npm run package -w @collage/web` did 
 
 **`az webapp deploy` reports "site failed to start" while the site is serving traffic**
 Once a release crashes on boot, the site keeps a sticky
-`LastError: ContainerStartupFailure` in its container status. The synchronous OneDeploy
-poller reads that flag and reports `FailedInstances: 1` for every later deployment, even
-after `Site started.` appears in the startup log with the new deployment id. That is why
-the workflow deploys with `--async true` and treats the `/healthz` probe — which must
-report the commit being deployed — as the real gate. To confirm by hand:
+`LastError: ContainerStartupFailure` in its container status. The OneDeploy status
+tracker reads that flag and reports `FailedInstances: 1` for every later deployment, even
+after `Site started.` appears in the startup log with the new deployment id. It prints
+`Status: Starting the site...` for ten minutes and then fails the step with
+`UnknownDeploymentError`. `--async true` does **not** skip that tracker — the flag that
+does is `--track-status false`. The workflow passes both and treats the `/healthz` probe
+— which must report the commit being deployed — as the real gate. To confirm by hand:
 
 ```bash
 az webapp log download -n <site> -g <group> --log-file logs.zip

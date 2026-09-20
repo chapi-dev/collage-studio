@@ -104,10 +104,12 @@ jobs:
           WEB_APP_NAME: ${{ steps.provision.outputs.webAppName }}
         run: |
           set -euo pipefail
-          # --async: the synchronous poller reports FailedInstances as soon as the
-          # site carries a sticky ContainerStartupFailure from an earlier release,
-          # even once the new worker is serving traffic. The smoke test below is
-          # the authoritative gate: it waits for /healthz to report this commit.
+          # --track-status false: the CLI poller keeps reporting "Starting the
+          # site..." and then fails at 10 minutes whenever the site carries a
+          # sticky ContainerStartupFailure from an earlier release, even once the
+          # new worker is serving traffic. --async alone does not skip that
+          # poller. The smoke test below is the authoritative gate: it waits for
+          # /healthz to report this commit.
           az webapp deploy \
             --resource-group "$RESOURCE_GROUP" \
             --name "$WEB_APP_NAME" \
@@ -115,6 +117,7 @@ jobs:
             --type zip \
             --clean true \
             --restart true \
+            --track-status false \
             --async true
 
       - name: Smoke test
