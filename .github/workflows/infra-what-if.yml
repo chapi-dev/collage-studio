@@ -46,6 +46,7 @@ jobs:
           RESOURCE_GROUP: ${{ matrix.resource-group }}
           PARAMETER_FILE: ${{ matrix.parameter-file }}
           APP_VERSION: ${{ github.sha }}
+          ENVIRONMENT: ${{ matrix.environment }}
         run: |
           set -euo pipefail
           az deployment group what-if \
@@ -56,9 +57,48 @@ jobs:
             --no-pretty-print > what-if.json
 
           {
-            echo "### What-if · ${{ matrix.environment }}"
+            echo "<!-- what-if:${ENVIRONMENT} -->"
+            echo "### What-if · \`${ENVIRONMENT}\`"
+            echo
+            # appVersion carries the commit sha, so the site always reports a
+            # Modify. Only the other resources say something about this change.
+            jq -r '
+              [.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore")] as $changes
+              | if ($changes | length) == 0 then
+                  "No infrastructure changes."
+                else
+                  "| Change | Resource |\n| --- | --- |\n"
+                  + ([$changes[] | "| `\(.changeType)` | `\(.resourceId | split("/") | .[-2:] | join("/"))` |"] | join("\n"))
+                end
+            ' what-if.json
+            echo
+            echo "<details><summary>Property level diff</summary>"
             echo
             echo '```json'
-            jq '[.changes[] | {changeType, resourceId}]' what-if.json
+            jq '[.changes[] | select(.changeType != "NoChange" and .changeType != "Ignore") | {changeType, resourceId, delta}]' what-if.json
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+            echo
+            echo "</details>"
+          } > comment.md
+
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the plan on the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENVIRONMENT: ${{ matrix.environment }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          marker="<!-- what-if:${ENVIRONMENT} -->"
+          existing=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq "[.[] | select(.body | startswith(\"${marker}\")) | .id] | first // empty")
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" \
+              -F body=@comment.md > /dev/null
+            echo "Updated comment ${existing}"
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              -F body=@comment.md > /dev/null
+            echo "Created a new comment"
+          fi
