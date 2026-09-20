@@ -13,6 +13,15 @@ so the Azure footprint is only a static host — no image upload, no storage, no
 | Mobile  | Expo SDK 57 + React Native 0.86 | iOS and Android, built with EAS    |
 | Engine  | TypeScript, zero dependencies   | Shared by both clients             |
 
+## Live environments
+
+| Environment | URL                                                        | Plan            |
+| ----------- | ---------------------------------------------------------- | --------------- |
+| dev         | <https://app-collage-dev-v6nfmaroooon2.azurewebsites.net>  | B1, 1 worker    |
+| prod        | <https://app-collage-prod-jdmrvajfcyj2c.azurewebsites.net> | P0v3, 2 workers |
+
+Both expose `/healthz`, which reports the commit currently being served.
+
 ## Features
 
 - 9 aspect ratios grouped by use case (square, portrait, landscape) and 4 export
