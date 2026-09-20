@@ -84,14 +84,22 @@ build -> dev (auto) -> prod (protected environment)
 
 Infrastructure is deployed from the same workflow, so the App Service configuration and
 the application version always move together. Pull requests that touch `infra/` get an
-`az deployment group what-if` summary for both environments.
+`az deployment group what-if` plan posted as a comment, for both environments.
 
-| Environment | Resource group           | Plan | Workers |
-| ----------- | ------------------------ | ---- | ------- |
-| dev         | `rg-collage-studio-dev`  | B1   | 1       |
-| prod        | `rg-collage-studio-prod` | P0v3 | 2       |
+| Environment | Resource group           | Plan | Workers | Gate                   |
+| ----------- | ------------------------ | ---- | ------- | ---------------------- |
+| dev         | `rg-collage-studio-dev`  | B1   | 1       | automatic, `main` only |
+| prod        | `rg-collage-studio-prod` | P0v3 | 2       | manual review          |
 
-First time setup (creates the resource groups, the Entra application with federated
+**Production waits for a human.** The `prod` environment requires a reviewer, so CD stops
+after dev and the run shows _Review deployments_ until someone approves it. Drop the rule
+with `gh api -X PUT repos/<owner>/<repo>/environments/prod -f wait_timer=0` and an empty
+`reviewers` array if you would rather ship straight through.
+
+A deployment is only considered successful when `/healthz` reports the commit that is
+being shipped, so a green CD run means that exact build is serving traffic.
+
+First time setup (creates the resource groups, the managed identity with federated
 credentials, the role assignments and the GitHub environments and secrets):
 
 ```powershell

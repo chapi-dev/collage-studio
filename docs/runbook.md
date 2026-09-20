@@ -17,6 +17,18 @@ names from the deployment outputs instead of guessing them:
 az deployment group list -g rg-collage-studio-dev --query "[0].properties.outputs" -o json
 ```
 
+Both environments only accept deployments from `main`, and `prod` additionally requires a
+reviewer. Approve a waiting release with:
+
+```bash
+gh run view <run-id>                       # shows "Review deployments" while it waits
+gh api -X POST repos/<owner>/<repo>/actions/runs/<run-id>/pending_deployments \
+  -F 'environment_ids[]=<prod-env-id>' -f state=approved -f comment='shipping'
+```
+
+The environment id comes from
+`gh api repos/<owner>/<repo>/environments --jq '.environments[] | {name, id}'`.
+
 ## Deploy
 
 ```bash
